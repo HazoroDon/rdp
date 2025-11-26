@@ -5,6 +5,36 @@ on:
   workflow_dispatch:
 
 
+jobs:
+  secure-rdp:
+    runs-on: windows-latest
+    timeout-minutes: 3600
+
+
+    steps:
+      - name: Configure Core HADEV Settings
+        run: |
+          # Enable Remote Desktop and disable Network Level Authentication (if needed)
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' `
+                             -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' `
+                             -Name "UserAuthentication" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' `
+                             -Name "SecurityLayer" -Value 0 -Force
+
+
+          # Remove any existing rule with the same name to avoid duplication
+          netsh advfirewall firewall delete rule name="HADEV-Tailscale"
+          
+          # For testing, allow any incoming connection on port 3389
+          netsh advfirewall firewall add rule name="HADEV-Tailscale" `
+            dir=in action=allow protocol=TCP localport=3389
+
+
+          # (Optional) Restart the Remote Desktop service to ensure changes take effect
+          Restart-Service -Name TermService -Force
+
+
       - name: Create HADEV User with Secure Password
         run: |
           Add-Type -AssemblyName System.Security
@@ -89,7 +119,6 @@ on:
           while ($true) {
               Write-Host "[$(Get-Date)] HADEV Active - Use Ctrl+C in workflow to terminate"
               Start-Sleep -Seconds 300
-
               
       - name: Get Current Tailscale IP After Restart
         if: always() # حتى لو حصل خطأ في الخطوات السابقة
@@ -104,5 +133,4 @@ on:
           Write-Host "`n=== NEW TAILSCALE IP ==="
           Write-Host "IP Address: $tsIP"
           Write-Host "=========================`n"
-
           }
