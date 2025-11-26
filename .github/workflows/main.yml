@@ -116,21 +116,23 @@ jobs:
           Write-Host "==================`n"
           
           # Keep runner active indefinitely (or until manually cancelled)
-          while ($true) {
-              Write-Host "[$(Get-Date)] HADEV Active - Use Ctrl+C in workflow to terminate"
-              Start-Sleep -Seconds 300
-             } 
-      - name: Get Current Tailscale IP After Restart
-        if: always() # حتى لو حصل خطأ في الخطوات السابقة
-        run: |
-          Write-Host "Checking current Tailscale IP..."
-          $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-          if (-not $tsIP) {
-              Write-Error "Failed to retrieve Tailscale IP"
-              exit 1
+          
+          $previousIP = $env:TAILSCALE_IP
+          $maxHours = 12
+          $interval = 300 # 5 minutes
+          $endTime = (Get-Date).AddHours($maxHours)
+          
+          while ((Get-Date) -lt $endTime) {
+              $currentIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+              if ($currentIP -and $currentIP -ne $previousIP) {
+                  Write-Host "`n=== Tailscale IP Changed ==="
+                  Write-Host "Old IP: $previousIP"
+                  Write-Host "New IP: $currentIP"
+                  echo "TAILSCALE_IP=$currentIP" >> $env:GITHUB_ENV
+                  $previousIP = $currentIP
+              }
+              Write-Host "[$(Get-Date)] HADEV Active - Current IP: $previousIP"
+              Start-Sleep -Seconds $interval
           }
-          echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
-          Write-Host "`n=== NEW TAILSCALE IP ==="
-          Write-Host "IP Address: $tsIP"
-          Write-Host "=========================`n"
+
           
