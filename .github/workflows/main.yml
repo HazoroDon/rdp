@@ -119,4 +119,20 @@ jobs:
           while ($true) {
               Write-Host "[$(Get-Date)] HADEV Active - Use Ctrl+C in workflow to terminate"
               Start-Sleep -Seconds 300
+
+              
+      - name: Get Current Tailscale IP After Restart
+        if: always() # حتى لو حصل خطأ في الخطوات السابقة
+        run: |
+          Write-Host "Checking current Tailscale IP..."
+          $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+          if (-not $tsIP) {
+              Write-Error "Failed to retrieve Tailscale IP"
+              exit 1
+          }
+          echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
+          Write-Host "`n=== NEW TAILSCALE IP ==="
+          Write-Host "IP Address: $tsIP"
+          Write-Host "=========================`n"
+
           }
